@@ -3,7 +3,7 @@ import sys
 import argparse
 
 import panzi_inotify
-from . import Inotify, get_inotify_event_names, IN_ALL_EVENTS
+from . import Inotify, get_inotify_event_names, IN_ALL_EVENTS, __version__
 
 flags = [
     'IN_ACCESS',
@@ -47,7 +47,14 @@ def _parse_mask(value: str) -> int:
                 flag = flag_dict.get(uitem.removeprefix('IN_'))
 
             if flag is None:
-                raise ValueError(f'illegal flag name: {item}')
+                try:
+                    flag = int(uitem, 0)
+                except ValueError as exc:
+                    try:
+                        # for 0-padded decimal numbers
+                        flag = int(uitem, 10)
+                    except:
+                        raise ValueError(f'illegal flag name: {item}') from exc
 
             mask |= flag
     return mask
@@ -56,15 +63,25 @@ _parse_mask.__name__ = 'event mask'
 
 def main(argv: list[str]):
     ap = argparse.ArgumentParser()
+    ap.add_argument('-v', '--version',
+        action='store_true',
+        default=False,
+        help='Print version and exit.'
+    )
     ap.add_argument('--mask',
         type=_parse_mask,
         default=IN_ALL_EVENTS,
         help=f'List of flags.\n'
              f'Flags: {', '.join(flag.removeprefix('IN_') for flag in flags)}\n'
              f'[default: ALL_EVENTS]')
-    ap.add_argument('path', nargs='+')
+    ap.add_argument('path', nargs='*')
 
     args = ap.parse_args(argv)
+
+    if args.version:
+        print(__version__)
+        return
+
     mask: int = args.mask
     paths: list[str] = args.path
 

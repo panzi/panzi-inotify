@@ -34,11 +34,24 @@ with Inotify() as inotify:
     for filename in sys.argv[1:]:
         inotify.add_watch(filename)
 
-    while event := inotify.read_event():
-        print(f'{event.watch_path}/{event.filename}: {", ".join(get_inotify_event_names(event.mask))}')
+    for event in inotify:
+        print(f'{event.full_path()}: {", ".join(get_inotify_event_names(event.mask))}')
 ```
 
 See [examples](examples) for more.
+
+You can also run a basic command line too to listen for events on a set of paths
+like this:
+
+```bash
+python -m panzi_inotify [--mask=MASK] <path>...
+```
+
+For more on this see:
+
+```bash
+python -m panzi_inotify --help
+```
 
 API Reference
 -------------
