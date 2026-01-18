@@ -47,14 +47,14 @@ API Reference
 
 Inotify event as read from the inotify file handle.
 
+* `cookie`: `int`
 * `filename`: `Optional[str]`
 * `filename_len`: `int`
-* `wd`: `int`
-* `watch_path`: `str`
-* `cookie`: `int`
 * `mask`: `int`
+* `watch_path`: `str`
+* `wd`: `int`
 
-#### `full_path`(`self`) -> `str`
+#### `InotifyEvent`.`full_path`(`self`) -> `str`
 
 Join `watch_path` and `filename`, or only `watch_path` if `filename` is `None`.
 
@@ -66,7 +66,23 @@ Listen for inotify events.
 
 Supports the context manager and iterator protocols.
 
-#### `add_watch`(`self`, `path`: `str`, `mask`: `int`) -> `int`
+* `_inotify_fd`: `int`
+* `_inotify_stream`: `_io.BufferedReader`
+* `_path_to_wd`: `dict[str, int]`
+* `_wd_to_path`: `dict[int, str]`
+
+#### `Inotify`.`__init__`(`self`, `flags`: `int` = `0x80000`) -> `None`
+
+It's recommended to pass the `IN_CLOEXEC` flag (default).
+
+This calls `inotify_init1()` and thus might raise an
+`OSError` with one of these `errno` values:
+- `EINVAL`
+- `EMFILE`
+- `ENOMEM`
+- `ENOSYS` if your libc doesn't support `inotify_init1()`
+
+#### `Inotify`.`add_watch`(`self`, `path`: `str`, `mask`: `int` = `0xfff`) -> `int`
 
 Add a watch path.
 
@@ -80,37 +96,37 @@ of these exceptions:
   `ENOMEM`, `ENOSPC`, `ENOSYS` if your libc doesn't support
   `inotify_rm_watch()`)
 
-#### `close`(`self`) -> `None`
+#### `Inotify`.`close`(`self`) -> `None`
 
 Close the inotify handle.
 
 Can safely be called multiple times, but you
 can't call any other methods once closed.
 
-#### `closed`: `bool`
+#### `Inotify`.`closed`: `bool`
 
 `True` if the inotify file descriptor was closed.
 
-#### `fileno`(`self`) -> `int`
+#### `Inotify`.`fileno`(`self`) -> `int`
 
 The inotify file descriptor.
 
 You can use this to call `poll()` or similar yourself
 instead of using `PollInotify.wait()`.
 
-#### `get_watch_id`(`self`, `path`: `str`) -> `Optional[int]`
+#### `Inotify`.`get_watch_id`(`self`, `path`: `str`) -> `Optional[int]`
 
 Get the watch id to a path, if the path is watched.
 
-#### `get_watch_path`(`self`, `wd`: `int`) -> `Optional[str]`
+#### `Inotify`.`get_watch_path`(`self`, `wd`: `int`) -> `Optional[str]`
 
 Get the path to a watch id, if the watch id is valid.
 
-#### `read_event`(`self`) -> `Optional[panzi_inotify.InotifyEvent]`
+#### `Inotify`.`read_event`(`self`) -> `Optional[panzi_inotify.InotifyEvent]`
 
 Read a single event. Might return `None` if there is none avaialbe.
 
-#### `read_events`(`self`, `terminal_events`: `int`) -> `list[panzi_inotify.InotifyEvent]`
+#### `Inotify`.`read_events`(`self`, `terminal_events`: `int` = `0x6000`) -> `list[panzi_inotify.InotifyEvent]`
 
 Read available events. Might return an empty list if there are none available.
 
@@ -118,7 +134,7 @@ Read available events. Might return an empty list if there are none available.
 
 Raises `TerminalEventException` if the flags in `terminal_events` are set in an event `mask`.
 
-#### `remove_watch`(`self`, `path`: `str`) -> `None`
+#### `Inotify`.`remove_watch`(`self`, `path`: `str`) -> `None`
 
 Remove watch by path.
 
@@ -130,7 +146,7 @@ This calls `inotify_rm_watch()` and this might raise an
 - `EINVAL`
 - `ENOSYS` if your libc doesn't support `inotify_rm_watch()`
 
-#### `remove_watch_with_id`(`self`, `wd`: `int`) -> `None`
+#### `Inotify`.`remove_watch_with_id`(`self`, `wd`: `int`) -> `None`
 
 Remove watch by handle.
 
@@ -142,7 +158,7 @@ This calls `inotify_rm_watch()` and this might raise an
 - `EINVAL`
 - `ENOSYS` if your libc doesn't support `inotify_rm_watch()`
 
-#### `watch_paths`(`self`) -> `set[str]`
+#### `Inotify`.`watch_paths`(`self`) -> `set[str]`
 
 Get the set of the watched paths.
 
@@ -158,11 +174,33 @@ need/can to do that yourself.
 
 Supports the context manager and iterator protocols.
 
-#### `stopfd`: `Optional[int]`
+* `_epoll`: `select.epoll`
+* `_stopfd`: `Optional[int]`
+
+#### `PollInotify`.`__init__`(`self`, `stopfd`: `Optional[int]` = `None`) -> `None`
+
+If not `None` then `stopfd` is a file descriptor that will
+be added to the `poll()` call in `PollInotify.wait()`.
+
+This calls `inotify_init1()` and thus might raise an
+`OSError` with one of these `errno` values:
+- `EINVAL` (shouldn't happen)
+- `EMFILE`
+- `ENOMEM`
+- `ENOSYS` if your libc doesn't support `inotify_init1()`
+
+#### `PollInotify`.`close`(`self`) -> `None`
+
+Close the inotify and epoll handles.
+
+Can safely be called multiple times, but you
+can't call any other methods once closed.
+
+#### `PollInotify`.`stopfd`: `Optional[int]`
 
 The `stopfd` parameter of `__init__()`, used in `wait()`.
 
-#### `wait`(`self`, `timeout`: `Optional[float]`) -> `bool`
+#### `PollInotify`.`wait`(`self`, `timeout`: `Optional[float]` = `None`) -> `bool`
 
 Wait for inotify events or for any `POLLIN` on `stopfd`,
 if that is not `None`. If `stopfd` signals this function will
@@ -182,9 +220,11 @@ Exception raised by `Inotify.read_events()` when an event mask contains one
 of the specified `terminal_events`.
 
 * `wd`: `int`
-* `filename`: `Optional[str]`
-* `watch_path`: `Optional[str]`
 * `mask`: `int`
+* `watch_path`: `Optional[str]`
+* `filename`: `Optional[str]`
+
+#### `TerminalEventException`.`__init__`(`self`, `wd`: `int`, `mask`: `int`, `watch_path`: `Optional[str]`, `filename`: `Optional[str]`) -> `None`
 
 
 
