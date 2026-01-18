@@ -66,11 +66,6 @@ Listen for inotify events.
 
 Supports the context manager and iterator protocols.
 
-* `_inotify_fd`: `int`
-* `_inotify_stream`: `_io.BufferedReader`
-* `_path_to_wd`: `dict[str, int]`
-* `_wd_to_path`: `dict[int, str]`
-
 #### `Inotify`.`__init__`(`self`, `flags`: `int` = `0x80000`) -> `None`
 
 It's recommended to pass the `IN_CLOEXEC` flag (default).
@@ -173,9 +168,6 @@ method that waits for events using `epoll`. If you use `Inotify` you
 need/can to do that yourself.
 
 Supports the context manager and iterator protocols.
-
-* `_epoll`: `select.epoll`
-* `_stopfd`: `Optional[int]`
 
 #### `PollInotify`.`__init__`(`self`, `stopfd`: `Optional[int]` = `None`) -> `None`
 
