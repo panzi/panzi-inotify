@@ -19,7 +19,7 @@ This one is different in these ways:
   `epoll_wait()` call in `Inotify.wait()`. If `POLLIN` signals for that `wait()`
   will return `False`. This is meant for implementing a way to stop a process that
   waits for events without a timeout.
-* Translates errors in the approprioate Python exceptions from the given
+* Translates errors in the appropriate Python exceptions from the given
   `errno` (`FileNotFoundError` etc. and `OSError` as fallback).
 
 Example
