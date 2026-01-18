@@ -146,12 +146,12 @@ def get_inotify_event_names(mask: int) -> list[str]:
     for code, name in INOTIFY_MASK_CODES.items():
         if mask & code:
             names.append(name)
-            code &= ~mask
+            mask &= ~code
 
     if mask:
         for bit in range(0, 32):
             if bit & mask:
-                names.append(str(bit))
+                names.append('0x%x' % bit)
 
     return names
 
