@@ -74,40 +74,38 @@ IN_CLOEXEC  = os.O_CLOEXEC  # Close inotify file descriptor on exec
 IN_NONBLOCK = os.O_NONBLOCK # Open inotify file descriptor as non-blocking
 
 # the following are legal, implemented events that user-space can watch for
-IN_ACCESS        = 0x00000001 # File was accessed
-IN_MODIFY        = 0x00000002 # File was modified
-IN_ATTRIB        = 0x00000004 # Metadata changed
-IN_CLOSE_WRITE   = 0x00000008 # Writtable file was closed
-IN_CLOSE_NOWRITE = 0x00000010 # Unwrittable file closed
-IN_OPEN          = 0x00000020 # File was opened
-IN_MOVED_FROM    = 0x00000040 # File was moved from X
-IN_MOVED_TO      = 0x00000080 # File was moved to Y
-IN_CREATE        = 0x00000100 # Subfile was created
-IN_DELETE        = 0x00000200 # Subfile was deleted
-IN_DELETE_SELF   = 0x00000400 # Self was deleted
-IN_MOVE_SELF     = 0x00000800 # Self was moved
+IN_ACCESS        = 0x00000001 # File was accessed.
+IN_MODIFY        = 0x00000002 # File was modified.
+IN_ATTRIB        = 0x00000004 # Metadata changed.
+IN_CLOSE_WRITE   = 0x00000008 # Writtable file was closed.
+IN_CLOSE_NOWRITE = 0x00000010 # Unwrittable file closed.
+IN_OPEN          = 0x00000020 # File was opened.
+IN_MOVED_FROM    = 0x00000040 # File was moved from X.
+IN_MOVED_TO      = 0x00000080 # File was moved to Y.
+IN_CREATE        = 0x00000100 # Subfile was created.
+IN_DELETE        = 0x00000200 # Subfile was deleted.
+IN_DELETE_SELF   = 0x00000400 # Self was deleted.
+IN_MOVE_SELF     = 0x00000800 # Self was moved.
 
 # the following are legal events.  they are sent as needed to any watch
-IN_UNMOUNT    = 0x00002000 # Backing file system was unmounted
-IN_Q_OVERFLOW = 0x00004000 # Event queued overflowed
-IN_IGNORED    = 0x00008000 # File was ignored
+IN_UNMOUNT    = 0x00002000 # Backing file system was unmounted.
+IN_Q_OVERFLOW = 0x00004000 # Event queued overflowed.
+IN_IGNORED    = 0x00008000 # File was ignored.
 
 # helper events
-IN_CLOSE = IN_CLOSE_WRITE | IN_CLOSE_NOWRITE # All close events
-IN_MOVE  = IN_MOVED_FROM  | IN_MOVED_TO      # All move events
+IN_CLOSE = IN_CLOSE_WRITE | IN_CLOSE_NOWRITE # All close events.
+IN_MOVE  = IN_MOVED_FROM  | IN_MOVED_TO      # All move events.
 
 # special flags
-IN_ONLYDIR     = 0x01000000 # only watch the path if it is a directory
-IN_DONT_FOLLOW = 0x02000000 # don't follow a sym link
-IN_EXCL_UNLINK = 0x04000000 # exclude events on unlinked objects
-IN_MASK_CREATE = 0x10000000 # only create watches
-IN_MASK_ADD    = 0x20000000 # add to the mask of an already existing watch
-IN_ISDIR       = 0x40000000 # event occurred against dir
-IN_ONESHOT     = 0x80000000 # only send event once
+IN_ONLYDIR     = 0x01000000 # Only watch the path if it is a directory.
+IN_DONT_FOLLOW = 0x02000000 # Don't follow symbolic links.
+IN_EXCL_UNLINK = 0x04000000 # Exclude events on unlinked objects.
+IN_MASK_CREATE = 0x10000000 # Only create watches.
+IN_MASK_ADD    = 0x20000000 # Add to the mask of an already existing watch.
+IN_ISDIR       = 0x40000000 # Event occurred against dir.
+IN_ONESHOT     = 0x80000000 # Only send event once.
 
-# All of the events - we build the list by hand so that we can add flags in
-# the future and not break backward compatibility.  Apps will get only the
-# events that they originally wanted.  Be sure to add new events here
+# All of the events.
 IN_ALL_EVENTS = (
     IN_ACCESS | IN_MODIFY | IN_ATTRIB | IN_CLOSE_WRITE |
     IN_CLOSE_NOWRITE | IN_OPEN | IN_MOVED_FROM |
@@ -260,6 +258,9 @@ class TerminalEventException(Exception):
         self.filename = filename
 
 class InotifyEvent(NamedTuple):
+    """
+    Inotify event as read from the inotify file handle.
+    """
     wd: int
     mask: int
     cookie: int
@@ -268,8 +269,11 @@ class InotifyEvent(NamedTuple):
     filename: Optional[str]
 
     def full_path(self) -> str:
+        """
+        Join `watch_path` and `filename`, or only `watch_path` if `filename` is `None`.
+        """
         filename = self.filename
-        return join_path(self.watch_path, filename) if filename else self.watch_path
+        return join_path(self.watch_path, filename) if filename is not None else self.watch_path
 
 class Inotify:
     """
@@ -318,6 +322,9 @@ class Inotify:
 
     @property
     def closed(self) -> bool:
+        """
+        `True` if the inotify file descriptor was closed.
+        """
         return self._inotify_fd == -1
 
     def close(self) -> None:
@@ -357,7 +364,7 @@ class Inotify:
         - `NotADirectoryError` (`ENOTDIR`)
         - `OSError` (`WBADF`, `EFAULT`, `EINVAL`, `ENAMETOOLONG`,
           `ENOMEM`, `ENOSPC`, `ENOSYS` if your libc doesn't support
-           `inotify_rm_watch()`)
+          `inotify_rm_watch()`)
         """
         path_bytes = path.encode('UTF-8', 'surrogateescape')
 
@@ -533,7 +540,7 @@ class PollInotify(Inotify):
 
     def __init__(self, stopfd: Optional[int] = None) -> None:
         """
-        If not `None` then stopfd is a file descriptor that will
+        If not `None` then `stopfd` is a file descriptor that will
         be added to the `poll()` call in `PollInotify.wait()`.
 
         This calls `inotify_init1()` and thus might raise an
@@ -553,6 +560,9 @@ class PollInotify(Inotify):
 
     @property
     def stopfd(self) -> Optional[int]:
+        """
+        The `stopfd` parameter of `__init__()`, used in `wait()`.
+        """
         return self._stopfd
 
     def close(self) -> None:
