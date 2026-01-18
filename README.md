@@ -41,14 +41,13 @@ def handle_signal(sig: int, frame):
 signal.signal(signal.SIGINT, handle_signal)
 signal.signal(signal.SIGTERM, handle_signal)
 
-inotify = Inotify(stopfd_read)
+with Inotify(stopfd_read) as inotify:
+    for filename in sys.argv[1:]:
+        inotify.add_watch(filename)
 
-for filename in sys.argv[1:]:
-    inotify.add_watch(filename)
-
-while inotify.wait():
-    for event in inotify.read_events():
-        print(f'{event.watch_path}/{event.filename}: {", ".join(get_inotify_event_names(event.mask))}')
+    while inotify.wait():
+        for event in inotify.read_events():
+            print(f'{event.watch_path}/{event.filename}: {", ".join(get_inotify_event_names(event.mask))}')
 
 os.close(stopfd_read)
 os.close(stopfd_write)

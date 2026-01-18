@@ -22,7 +22,7 @@ _logger = logging.getLogger(__name__)
 _LIBC_PATH = ctypes.util.find_library('c') or 'libc.so.6'
 
 try:
-    _LIBC = ctypes.CDLL(_LIBC_PATH, use_errno=True)
+    _LIBC: Optional[ctypes.CDLL] = ctypes.CDLL(_LIBC_PATH, use_errno=True)
 except OSError as exc:
     _LIBC = None
     _logger.debug(f'Loading {_LIBC_PATH!r}: {exc}', exc_info=exc)
@@ -30,6 +30,7 @@ except OSError as exc:
 __all__ = (
     'InotifyEvent',
     'Inotify',
+    'PollInotify',
     'TerminalEventException',
     'IN_CLOEXEC',
     'IN_NONBLOCK',
@@ -249,39 +250,29 @@ class Inotify:
     __slots__ = (
         '_inotify_fd',
         '_inotify_stream',
-        '_epoll',
         '_path_to_wd',
         '_wd_to_path',
-        '_stopfd',
     )
 
-    _epoll: select.epoll
-    _stopfd: Optional[int]
-    _path_to_wd: dict[str, int]
-    _wd_to_path: dict[int, str]
     _inotify_fd: int
     _inotify_stream: BufferedReader
+    _path_to_wd: dict[str, int]
+    _wd_to_path: dict[int, str]
 
-    def __init__(self, stopfd: Optional[int] = None) -> None:
+    def __init__(self, flags: int = IN_CLOEXEC) -> None:
         """
-        If not `None` then stopfd is a file descriptor that will
-        be added to the `poll()` call in `Inotify.wait()`.
+        It's recommended to pass the `IN_CLOEXEC` flag (default).
 
         This calls `inotify_init1()` and thus might raise an
         `OSError` with one of these `errno` values:
-        - `EINVAL` (shouldn't happen)
+        - `EINVAL`
         - `EMFILE`
         - `ENOMEM`
         - `ENOSYS` if your libc doesn't support `inotify_init1()`
         """
-        self._stopfd = stopfd
-        self._inotify_fd = inotify_init1(IN_NONBLOCK | IN_CLOEXEC)
+        self._inotify_fd = -1
+        self._inotify_fd = inotify_init1(flags)
         self._inotify_stream = os.fdopen(self._inotify_fd, 'rb')
-        self._epoll = select.epoll(1 if stopfd is None else 2)
-        self._epoll.register(self._inotify_fd, select.POLLIN)
-
-        if stopfd is not None:
-            self._epoll.register(stopfd, select.POLLIN)
 
         self._path_to_wd = {}
         self._wd_to_path = {}
@@ -291,17 +282,13 @@ class Inotify:
         The inotify file descriptor.
 
         You can use this to call `poll()` or similar yourself
-        instead of using `Inotify.wait()`.
+        instead of using `PollInotify.wait()`.
         """
         return self._inotify_fd
 
     @property
     def closed(self) -> bool:
         return self._inotify_fd == -1
-
-    @property
-    def stopfd(self) -> Optional[int]:
-        return self._stopfd
 
     def close(self) -> None:
         """
@@ -311,14 +298,13 @@ class Inotify:
         can't call any other methods once closed.
         """
         try:
-            stream = self._inotify_stream
-            if not stream.closed:
-                stream.close()
+            if self._inotify_fd != -1:
+                # A crash during inotify_init1() in __init__() means
+                # self._inotify_stream is not assigned, but self._inotify_fd
+                # is initialized with -1.
+                self._inotify_stream.close()
         finally:
             self._inotify_fd = -1
-            epoll = self._epoll
-            if not epoll.closed:
-                epoll.close()
 
     def __enter__(self) -> "Inotify":
         return self
@@ -417,31 +403,31 @@ class Inotify:
         """
         return self._wd_to_path.get(wd)
 
-    def wait(self, timeout: Optional[float] = None) -> bool:
+    def read_event(self) -> Optional[InotifyEvent]:
         """
-        Wait for inotify events or for any `POLLIN` on `stopfd`,
-        if that is not `None`. If `stopfd` signals this function will
-        return `False`, otherwise `True`.
-
-        Raises `TimeoutError` if `timeout` is not `None` and
-        the operation has expired.
+        Read a single event. Might return `None` if there is none avaialbe.
         """
-        events = self._epoll.poll(timeout)
+        stream = self._inotify_stream
+        header_bytes = stream.read(_HEADER_STRUCT.size)
+        if not header_bytes:
+            return None
 
-        if not events and timeout is not None and timeout >= 0.0:
-            raise TimeoutError
+        wd, mask, cookie, filename_len = _HEADER_STRUCT.unpack(header_bytes)
 
-        stopfd = self._stopfd
-        if stopfd is not None:
-            for fd, mask in events:
-                if fd == stopfd:
-                    return False
+        filename_bytes = stream.read(filename_len)
+        filename = filename_bytes.rstrip(b'\0').decode('UTF-8', 'surrogateescape')
 
-        return True
+        watch_path = self._wd_to_path.get(wd)
+
+        if watch_path is None:
+            _logger.debug(f'Got inotify event for unknown watch handle: {wd}, mask: {mask}, cookie: {cookie}')
+            return None
+
+        return InotifyEvent(wd, mask, cookie, filename_len, watch_path, filename)
 
     def read_events(self, terminal_events: int = IN_Q_OVERFLOW | IN_UNMOUNT) -> list[InotifyEvent]:
         """
-        Reads available events. Might return an empty list.
+        Read available events. Might return an empty list if there are none available.
 
         Raises `TerminalEventException` if the flags in `terminal_events` are set in an event `mask`.
         """
@@ -465,9 +451,94 @@ class Inotify:
                 wd_to_path.pop(wd, None)
                 self._path_to_wd.pop(watch_path, None)
 
-            if watch_path is not None:
-                events.append(InotifyEvent(wd, mask, cookie, filename_len, watch_path, filename))
+            if watch_path is None:
+                _logger.debug(f'Got inotify event for unknown watch handle: {wd}, mask: {mask}, cookie: {cookie}')
             else:
-                _logger.debug(f'Got inotify event for unknown watch handle: {wd}')
+                events.append(InotifyEvent(wd, mask, cookie, filename_len, watch_path, filename))
 
         return events
+
+class PollInotify(Inotify):
+    """
+    Listen for inotify events.
+
+    In addition to the functionality of `Inotify` this class adds a `wait()`
+    method that waits for events using `epoll`. If you use `Inotify` you
+    need/can to do that yourself.
+
+    Supports the context manager protocol.
+    """
+    __slots__ = (
+        '_epoll',
+        '_stopfd',
+    )
+
+    _epoll: select.epoll
+    _stopfd: Optional[int]
+
+    def __init__(self, stopfd: Optional[int] = None) -> None:
+        """
+        If not `None` then stopfd is a file descriptor that will
+        be added to the `poll()` call in `PollInotify.wait()`.
+
+        This calls `inotify_init1()` and thus might raise an
+        `OSError` with one of these `errno` values:
+        - `EINVAL` (shouldn't happen)
+        - `EMFILE`
+        - `ENOMEM`
+        - `ENOSYS` if your libc doesn't support `inotify_init1()`
+        """
+        super().__init__(IN_NONBLOCK | IN_CLOEXEC)
+        self._stopfd = stopfd
+        self._epoll = select.epoll(1 if stopfd is None else 2)
+        self._epoll.register(self._inotify_fd, select.POLLIN)
+
+        if stopfd is not None:
+            self._epoll.register(stopfd, select.POLLIN)
+
+    @property
+    def stopfd(self) -> Optional[int]:
+        return self._stopfd
+
+    def close(self) -> None:
+        """
+        Close the inotify and epoll handles.
+
+        Can safely be called multiple times, but you
+        can't call any other methods once closed.
+        """
+        try:
+            super().close()
+        finally:
+            epoll = self._epoll
+            if not epoll.closed:
+                epoll.close()
+
+    def __enter__(self) -> "PollInotify":
+        return self
+
+    def wait(self, timeout: Optional[float] = None) -> bool:
+        """
+        Wait for inotify events or for any `POLLIN` on `stopfd`,
+        if that is not `None`. If `stopfd` signals this function will
+        return `False`, otherwise `True`.
+
+        Raises `TimeoutError` if `timeout` is not `None` and
+        the operation has expired.
+
+        This method uses using `select.epoll.poll()`, see there for
+        additional possible exceptions.
+        """
+        events = self._epoll.poll(timeout)
+
+        if not events and timeout is not None and timeout >= 0.0:
+            raise TimeoutError
+
+        stopfd = self._stopfd
+        if stopfd is not None:
+            for fd, mask in events:
+                if fd == stopfd:
+                    return False
+
+        return True
+
