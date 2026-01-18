@@ -66,7 +66,7 @@ Listen for inotify events.
 
 Supports the context manager and iterator protocols.
 
-#### `Inotify`.`__init__`(`self`, `flags`: `int` = `0x80000`) -> `None`
+#### `Inotify`.`__init__`(`self`, `flags`: `int` = `IN_CLOEXEC`) -> `None`
 
 It's recommended to pass the `IN_CLOEXEC` flag (default).
 
@@ -77,7 +77,7 @@ This calls `inotify_init1()` and thus might raise an
 - `ENOMEM`
 - `ENOSYS` if your libc doesn't support `inotify_init1()`
 
-#### `Inotify`.`add_watch`(`self`, `path`: `str`, `mask`: `int` = `0xfff`) -> `int`
+#### `Inotify`.`add_watch`(`self`, `path`: `str`, `mask`: `int` = `IN_ALL_EVENTS`) -> `int`
 
 Add a watch path.
 
