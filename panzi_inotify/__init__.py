@@ -88,13 +88,13 @@ IN_DELETE_SELF   = 0x00000400 # Self was deleted
 IN_MOVE_SELF     = 0x00000800 # Self was moved
 
 # the following are legal events.  they are sent as needed to any watch
-IN_UNMOUNT    = 0x00002000 # Backing fs was unmounted
+IN_UNMOUNT    = 0x00002000 # Backing file system was unmounted
 IN_Q_OVERFLOW = 0x00004000 # Event queued overflowed
-IN_IGNORED    = 0x00008000 # File was ignored (watch removed/file deleted/filesystem unmounted)
+IN_IGNORED    = 0x00008000 # File was ignored
 
 # helper events
-IN_CLOSE = IN_CLOSE_WRITE | IN_CLOSE_NOWRITE # close
-IN_MOVE  = IN_MOVED_FROM  | IN_MOVED_TO      # moves
+IN_CLOSE = IN_CLOSE_WRITE | IN_CLOSE_NOWRITE # All close events
+IN_MOVE  = IN_MOVED_FROM  | IN_MOVED_TO      # All move events
 
 # special flags
 IN_ONLYDIR     = 0x01000000 # only watch the path if it is a directory
@@ -115,6 +115,7 @@ IN_ALL_EVENTS = (
     IN_MOVE_SELF
 )
 
+# Mapping from inotify event mask flag to it's name.
 INOTIFY_MASK_CODES: dict[int, str] = {
     globals()[_key]: _key.removeprefix('IN_')
     for _key in (
@@ -140,10 +141,20 @@ INOTIFY_MASK_CODES: dict[int, str] = {
 }
 
 def get_inotify_event_names(mask: int) -> list[str]:
+    """
+    Get a list of event names from an event mask as returned by inotify.
+    """
     names: list[str] = []
     for code, name in INOTIFY_MASK_CODES.items():
         if mask & code:
             names.append(name)
+            code &= ~mask
+
+    if mask:
+        for bit in range(0, 32):
+            if bit & mask:
+                names.append(str(bit))
+
     return names
 
 def _check_return(value: int, filename: Optional[str] = None) -> int:
@@ -224,6 +235,11 @@ inotify_add_watch = _load_sym('inotify_add_watch', (
 inotify_rm_watch = _load_sym('inotify_rm_watch', (ctypes.c_int, ctypes.c_int), ctypes.c_int)
 
 class TerminalEventException(Exception):
+    """
+    Exception raised by `Inotify.read_events()` when an event mask contains one
+    of the specified `terminal_events`.
+    """
+
     __slots__ = (
         'wd',
         'mask',
@@ -447,6 +463,8 @@ class Inotify:
     def read_events(self, terminal_events: int = IN_Q_OVERFLOW | IN_UNMOUNT) -> list[InotifyEvent]:
         """
         Read available events. Might return an empty list if there are none available.
+
+        **NOTE:** Don't use this in blocking mode! It will never return.
 
         Raises `TerminalEventException` if the flags in `terminal_events` are set in an event `mask`.
         """
