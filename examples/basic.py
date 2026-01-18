@@ -8,5 +8,5 @@ with Inotify() as inotify:
     for filename in sys.argv[1:]:
         inotify.add_watch(filename)
 
-    while event := inotify.read_event():
-        print(f'{event.watch_path}/{event.filename}: {", ".join(get_inotify_event_names(event.mask))}')
+    for event in inotify:
+        print(f'{event.full_path()}: {", ".join(get_inotify_event_names(event.mask))}')

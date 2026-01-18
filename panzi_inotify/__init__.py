@@ -1,4 +1,4 @@
-from typing import Optional, NamedTuple, Callable, Any
+from typing import Optional, NamedTuple, Callable, Any, Self
 
 import os
 import select
@@ -6,6 +6,7 @@ import ctypes
 import ctypes.util
 import logging
 
+from os.path import join as join_path
 from io import BufferedReader
 from struct import Struct
 from errno import (
@@ -25,7 +26,7 @@ try:
     _LIBC: Optional[ctypes.CDLL] = ctypes.CDLL(_LIBC_PATH, use_errno=True)
 except OSError as exc:
     _LIBC = None
-    _logger.debug(f'Loading {_LIBC_PATH!r}: {exc}', exc_info=exc)
+    _logger.debug('Loading %r: %s', _LIBC_PATH, exc, exc_info=exc)
 
 __all__ = (
     'InotifyEvent',
@@ -60,7 +61,7 @@ __all__ = (
     'IN_ONESHOT',
     'IN_ALL_EVENTS',
     'get_inotify_event_names',
-    'INOTIFY_CODES',
+    'INOTIFY_MASK_CODES',
 )
 
 _HEADER_STRUCT = Struct('iIII')
@@ -69,8 +70,8 @@ _HEADER_STRUCT = Struct('iIII')
 
 # Flags for sys_inotify_init1
 
-IN_CLOEXEC  = os.O_CLOEXEC
-IN_NONBLOCK = os.O_NONBLOCK
+IN_CLOEXEC  = os.O_CLOEXEC  # Close inotify file descriptor on exec
+IN_NONBLOCK = os.O_NONBLOCK # Open inotify file descriptor as non-blocking
 
 # the following are legal, implemented events that user-space can watch for
 IN_ACCESS        = 0x00000001 # File was accessed
@@ -89,7 +90,7 @@ IN_MOVE_SELF     = 0x00000800 # Self was moved
 # the following are legal events.  they are sent as needed to any watch
 IN_UNMOUNT    = 0x00002000 # Backing fs was unmounted
 IN_Q_OVERFLOW = 0x00004000 # Event queued overflowed
-IN_IGNORED    = 0x00008000 # File was ignored
+IN_IGNORED    = 0x00008000 # File was ignored (watch removed/file deleted/filesystem unmounted)
 
 # helper events
 IN_CLOSE = IN_CLOSE_WRITE | IN_CLOSE_NOWRITE # close
@@ -114,24 +115,33 @@ IN_ALL_EVENTS = (
     IN_MOVE_SELF
 )
 
-INOTIFY_CODES: dict[int, str] = {
-    _value: _key.removeprefix('IN_')
-    for _key, _value in globals().items()
-    if _key.startswith('IN_') and type(_value) is int and _key not in (
-        'IN_CLOSE',
-        'IN_MOVE',
-        'IN_ONLYDIR',
-        'IN_DONT_FOLLOW',
-        'IN_EXCL_UNLINK',
-        'IN_MASK_CREATE',
-        'IN_MASK_ADD',
-        'IN_ALL_EVENTS',
+INOTIFY_MASK_CODES: dict[int, str] = {
+    globals()[_key]: _key.removeprefix('IN_')
+    for _key in (
+        'IN_ACCESS',
+        'IN_MODIFY',
+        'IN_ATTRIB',
+        'IN_CLOSE_WRITE',
+        'IN_CLOSE_NOWRITE',
+        'IN_OPEN',
+        'IN_MOVED_FROM',
+        'IN_MOVED_TO',
+        'IN_CREATE',
+        'IN_DELETE',
+        'IN_DELETE_SELF',
+        'IN_MOVE_SELF',
+
+        'IN_UNMOUNT',
+        'IN_Q_OVERFLOW',
+        'IN_IGNORED',
+
+        'IN_ISDIR',
     )
 }
 
 def get_inotify_event_names(mask: int) -> list[str]:
     names: list[str] = []
-    for code, name in INOTIFY_CODES.items():
+    for code, name in INOTIFY_MASK_CODES.items():
         if mask & code:
             names.append(name)
     return names
@@ -239,13 +249,17 @@ class InotifyEvent(NamedTuple):
     cookie: int
     filename_len: int
     watch_path: str
-    filename: str
+    filename: Optional[str]
+
+    def full_path(self) -> str:
+        filename = self.filename
+        return join_path(self.watch_path, filename) if filename else self.watch_path
 
 class Inotify:
     """
     Listen for inotify events.
 
-    Supports the context manager protocol.
+    Supports the context manager and iterator protocols.
     """
     __slots__ = (
         '_inotify_fd',
@@ -306,7 +320,7 @@ class Inotify:
         finally:
             self._inotify_fd = -1
 
-    def __enter__(self) -> "Inotify":
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, exc_type, exc_value, traceback) -> None:
@@ -353,6 +367,7 @@ class Inotify:
         """
         wd = self._path_to_wd.get(path)
         if wd is None:
+            _logger.debug('%s: Path is not watched', path)
             return
 
         try:
@@ -376,6 +391,7 @@ class Inotify:
         """
         path = self._wd_to_path.get(wd)
         if path is None:
+            _logger.debug('%d: Invalid handle', wd)
             return
 
         try:
@@ -414,13 +430,16 @@ class Inotify:
 
         wd, mask, cookie, filename_len = _HEADER_STRUCT.unpack(header_bytes)
 
-        filename_bytes = stream.read(filename_len)
-        filename = filename_bytes.rstrip(b'\0').decode('UTF-8', 'surrogateescape')
+        if filename_len:
+            filename_bytes = stream.read(filename_len)
+            filename = filename_bytes.rstrip(b'\0').decode('UTF-8', 'surrogateescape')
+        else:
+            filename = None
 
         watch_path = self._wd_to_path.get(wd)
 
         if watch_path is None:
-            _logger.debug(f'Got inotify event for unknown watch handle: {wd}, mask: {mask}, cookie: {cookie}')
+            _logger.debug('Got inotify event for unknown watch handle: %d, mask: %d, cookie: %d', wd, mask, cookie)
             return None
 
         return InotifyEvent(wd, mask, cookie, filename_len, watch_path, filename)
@@ -439,8 +458,11 @@ class Inotify:
         while header_bytes := stream.read(_HEADER_STRUCT.size):
             wd, mask, cookie, filename_len = _HEADER_STRUCT.unpack(header_bytes)
 
-            filename_bytes = stream.read(filename_len)
-            filename = filename_bytes.rstrip(b'\0').decode('UTF-8', 'surrogateescape')
+            if filename_len:
+                filename_bytes = stream.read(filename_len)
+                filename = filename_bytes.rstrip(b'\0').decode('UTF-8', 'surrogateescape')
+            else:
+                filename = None
 
             watch_path = wd_to_path.get(wd)
 
@@ -452,11 +474,26 @@ class Inotify:
                 self._path_to_wd.pop(watch_path, None)
 
             if watch_path is None:
-                _logger.debug(f'Got inotify event for unknown watch handle: {wd}, mask: {mask}, cookie: {cookie}')
+                _logger.debug('Got inotify event for unknown watch handle: %d, mask: %d, cookie: %d', wd, mask, cookie)
             else:
                 events.append(InotifyEvent(wd, mask, cookie, filename_len, watch_path, filename))
 
         return events
+
+    def __iter__(self) -> Self:
+        """
+        `Inotify` can act as an iterator over the available events.
+        """
+        return self
+
+    def __next__(self) -> InotifyEvent:
+        """
+        `Inotify` can act as an iterator over the available events.
+        """
+        event = self.read_event()
+        if event is None:
+            raise StopIteration
+        return event
 
 class PollInotify(Inotify):
     """
@@ -466,7 +503,7 @@ class PollInotify(Inotify):
     method that waits for events using `epoll`. If you use `Inotify` you
     need/can to do that yourself.
 
-    Supports the context manager protocol.
+    Supports the context manager and iterator protocols.
     """
     __slots__ = (
         '_epoll',
@@ -514,9 +551,6 @@ class PollInotify(Inotify):
             if not epoll.closed:
                 epoll.close()
 
-    def __enter__(self) -> "PollInotify":
-        return self
-
     def wait(self, timeout: Optional[float] = None) -> bool:
         """
         Wait for inotify events or for any `POLLIN` on `stopfd`,
@@ -541,4 +575,3 @@ class PollInotify(Inotify):
                     return False
 
         return True
-

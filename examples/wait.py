@@ -16,13 +16,16 @@ def handle_signal(sig: int, frame):
 signal.signal(signal.SIGINT, handle_signal)
 signal.signal(signal.SIGTERM, handle_signal)
 
+# For long running processes that might run multiple threads you can use
+# `PollInotify` wich provides a `wait()` method and the option to wait on
+# an additional file descriptor to detect when it should stop.
 with PollInotify(stopfd_read) as inotify:
     for filename in sys.argv[1:]:
         inotify.add_watch(filename)
 
     while inotify.wait():
         for event in inotify.read_events():
-            print(f'{event.watch_path}/{event.filename}: {", ".join(get_inotify_event_names(event.mask))}')
+            print(f'{event.full_path()}: {", ".join(get_inotify_event_names(event.mask))}')
 
 os.close(stopfd_read)
 os.close(stopfd_write)
