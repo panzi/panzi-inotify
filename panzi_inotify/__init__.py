@@ -1,3 +1,7 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 """
 **Source: [GitHub](https://github.com/panzi/panzi-inotify/)**
 
@@ -172,11 +176,14 @@ INOTIFY_MASK_CODES: Final[Mapping[int, str]] = {
 
         'IN_ISDIR',
     )
-}; "Mapping from inotify event mask flag to it's name."
+}; "Mapping from inotify event mask flag to it's name.\n\n**See Also:** `InotifyEvent.mask`"
 
 def get_inotify_event_names(mask: int) -> list[str]:
     """
     Get a list of event names from an event mask as returned by inotify.
+
+    If there is a flag set that isn't a know name the hexadecimal representation
+    of that flag is also returned.
     """
     names: list[str] = []
     for code, name in INOTIFY_MASK_CODES.items():
