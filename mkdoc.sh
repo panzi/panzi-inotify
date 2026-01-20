@@ -9,6 +9,8 @@ if [[ "$branch" = gh-pages ]]; then
     exit 1
 fi
 
+. .venv/bin/activate
+
 pdoc panzi_inotify -o ./docs
 
 git checkout gh-pages
