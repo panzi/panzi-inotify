@@ -7,4 +7,5 @@ license = "MPL-2.0"
 [dependency-groups]
 dev = [
     "mypy==1.19.*",
+    "pdoc>=16.0.0",
 ]
