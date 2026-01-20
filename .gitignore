@@ -3,4 +3,5 @@ __pycache__
 *.py[oc]
 /tmp
 /docs
+/panzi_inotify.egg-info
 !.gitignore
