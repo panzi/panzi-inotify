@@ -15,7 +15,7 @@ pdoc panzi_inotify -o ./docs
 
 git checkout gh-pages
 
-mv docs/*.hml docs/*.js .
+mv docs/*.html docs/*.js .
 
 if git status --porcelain --untracked-files=no | grep '^.M' >/dev/null; then
     git commit *.html *.js -m "updated API documentation"
