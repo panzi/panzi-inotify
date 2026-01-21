@@ -331,10 +331,24 @@ class InotifyEvent(NamedTuple):
         - `IN_IGNORED` - File was ignored.
         - `IN_ISDIR` - Event occurred against directory.
     """
-    cookie: int; "Unique cookie associating related events (for [rename(2)](https://linux.die.net/man/2/rename))."
-    filename_len: int; "Size of the filename field."
-    watch_path: str; "Path of the watched file, `None` if the Python code doesn't know about the watch."
-    filename: Optional[str]; "If the event is about the child of a watched directory, this is the name of that file, otherwise `None`."
+    cookie: int; """\
+        Unique cookie associating related events (for
+        [rename(2)](https://linux.die.net/man/2/rename)).
+    """
+    filename_len: int; "Original byte-size of the filename field."
+    watch_path: str; """\
+        Path of the watched file as it was registered.
+
+        **NOTE:** If the watched file or directory itself is moved/renamed
+        `watch_path` for any further events will *still* be the orignial path
+        that was registered. This is because it is not possible to determine
+        the new file name in a `IN_MOVE_SELF` event and thus this cannot be
+        updated.
+    """
+    filename: Optional[str]; """\
+        If the event is about the child of a watched directory, this is the name
+        of that file, otherwise `None`.
+    """
 
     def full_path(self) -> str:
         """
@@ -554,7 +568,12 @@ class Inotify:
         else:
             filename = None
 
-        watch_path = self._wd_to_path.get(wd)
+        wd_to_path = self._wd_to_path
+        watch_path = wd_to_path.get(wd)
+
+        if mask & IN_IGNORED and watch_path is not None:
+            wd_to_path.pop(wd, None)
+            self._path_to_wd.pop(watch_path, None)
 
         if watch_path is None:
             _logger.debug('Got inotify event for unknown watch handle: %d, mask: %d, cookie: %d', wd, mask, cookie)
