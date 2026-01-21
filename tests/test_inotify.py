@@ -8,6 +8,55 @@ from testutils import *
 # These are only some basic tests for the `Inotify` class.
 # TODO: Also test `PollInotify` including `terminal_events`.
 
+def test_watch_file(watch_file: str, subtests: pytest.Subtests) -> None:
+    with Inotify(IN_CLOEXEC | IN_NONBLOCK) as inotify:
+        wd = inotify.add_watch(watch_file)
+
+        with subtests.test('write to file'):
+            write_file(watch_file, 'change')
+
+            assert_events(inotify.read_events(), [
+                { 'wd': wd, 'mask': IN_OPEN, 'watch_path': watch_file, 'filename': None },
+                { 'wd': wd, 'mask': IN_MODIFY, 'watch_path': watch_file, 'filename': None },
+                { 'wd': wd, 'mask': IN_CLOSE_WRITE, 'watch_path': watch_file, 'filename': None },
+            ])
+
+        with subtests.test('change attributes'):
+            os.chmod(watch_file, 0o766)
+
+            assert_events(inotify.read_events(), [
+                { 'wd': wd, 'mask': IN_ATTRIB, 'watch_path': watch_file, 'filename': None },
+            ])
+
+        with subtests.test('rename watched file'):
+            os.rename(watch_file, f'{watch_file}_moved')
+
+            assert_events(inotify.read_events(), [
+                { 'wd': wd, 'mask': IN_MOVE_SELF, 'watch_path': watch_file, 'filename': None },
+            ])
+
+        with subtests.test('delete file'):
+            os.unlink(f'{watch_file}_moved')
+
+            event = inotify.read_event() # also test read_event() method
+            assert_events([event] if event is not None else [], [
+                { 'wd': wd, 'mask': IN_ATTRIB, 'watch_path': watch_file, 'filename': None },
+            ])
+
+            event = inotify.read_event() # also test read_event() method
+            assert_events([event] if event is not None else [], [
+                { 'wd': wd, 'mask': IN_DELETE_SELF, 'watch_path': watch_file, 'filename': None },
+            ])
+
+            event = inotify.read_event() # also test read_event() method
+            assert_events([event] if event is not None else [], [
+                { 'wd': wd, 'mask': IN_IGNORED, 'watch_path': watch_file, 'filename': None },
+            ])
+
+            assert inotify.watch_paths() == set()
+
+            assert_events(inotify.read_events(), [])
+
 def test_watch_dir(watch_dir: str, subtests: pytest.Subtests) -> None:
     with Inotify(IN_CLOEXEC | IN_NONBLOCK) as inotify:
         wd = inotify.add_watch(watch_dir)

@@ -35,3 +35,19 @@ def watch_dir(temp_prefix: tuple[str, str]) -> Generator[str, None, None]:
             shutil.rmtree(path)
         except FileNotFoundError:
             pass
+
+@pytest.fixture(scope="function")
+def watch_file(temp_prefix: tuple[str, str]) -> Generator[str, None, None]:
+    tempdir, prefix = temp_prefix
+    path = join_path(tempdir, f"{prefix}.txt")
+
+    with open(path, 'w'):
+        pass
+
+    try:
+        yield path
+    finally:
+        try:
+            os.unlink(path)
+        except FileNotFoundError:
+            pass
