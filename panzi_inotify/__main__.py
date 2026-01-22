@@ -72,7 +72,7 @@ def main(argv: list[str]):
         default=False,
         help='Print version and exit.'
     )
-    ap.add_argument('--mask',
+    ap.add_argument('-m', '--mask',
         type=_parse_mask,
         default=IN_ALL_EVENTS,
         help=f'List of flags.\n'
