@@ -20,6 +20,8 @@ from errno import (
     ECONNREFUSED, ECONNRESET, ENOSYS,
 )
 
+__version__ = '1.0.0'
+
 _logger = logging.getLogger(__name__)
 
 _LIBC_PATH = ctypes.util.find_library('c') or 'libc.so.6'

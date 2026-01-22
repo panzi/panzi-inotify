@@ -41,6 +41,43 @@ python -m panzi_inotify --help
 """
 
 from .inotify import *
-from .inotify import __all__
+from .inotify import __version__
+from .treenotify import *
 
-__version__ = '1.0.0'
+__all__ = (
+    'InotifyEvent',
+    'Inotify',
+    'PollInotify',
+    'TreeNotify',
+    'PollTreeNotify',
+    'TerminalEventException',
+    'get_inotify_event_names',
+    'IN_CLOEXEC',
+    'IN_NONBLOCK',
+    'IN_ACCESS',
+    'IN_MODIFY',
+    'IN_ATTRIB',
+    'IN_CLOSE_WRITE',
+    'IN_CLOSE_NOWRITE',
+    'IN_OPEN',
+    'IN_MOVED_FROM',
+    'IN_MOVED_TO',
+    'IN_CREATE',
+    'IN_DELETE',
+    'IN_DELETE_SELF',
+    'IN_MOVE_SELF',
+    'IN_UNMOUNT',
+    'IN_Q_OVERFLOW',
+    'IN_IGNORED',
+    'IN_CLOSE',
+    'IN_MOVE',
+    'IN_ONLYDIR',
+    'IN_DONT_FOLLOW',
+    'IN_EXCL_UNLINK',
+    'IN_MASK_CREATE',
+    'IN_MASK_ADD',
+    'IN_ISDIR',
+    'IN_ONESHOT',
+    'IN_ALL_EVENTS',
+    'INOTIFY_MASK_CODES',
+)
