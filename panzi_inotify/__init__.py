@@ -43,4 +43,4 @@ python -m panzi_inotify --help
 from .inotify import *
 from .inotify import __all__
 
-__version__ = '1.0.0'
+__version__ = '1.0.1'
