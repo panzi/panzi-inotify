@@ -1,6 +1,8 @@
 .*
 __pycache__
 *.py[oc]
+/build
+/dist
 /tmp
 /docs
 /panzi_inotify.egg-info
