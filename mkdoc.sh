@@ -11,7 +11,18 @@ fi
 
 . .venv/bin/activate
 
-pdoc panzi_inotify -o ./docs
+# This is ugly. I want it to document `panzi_inotify`, which re-expors
+# everything from `panzi_inotify.inotify`, but if I point pdoc to
+# `panzi_inotify` it doesn't see the doc strings of globals.
+pdoc panzi_inotify/inotify -o ./docs
+
+mv docs/panzi_inotify/inotify.html docs/panzi_inotify.html
+
+sed -i 's/panzi_inotify\.inotify/panzi_inotify/' docs/panzi_inotify.html
+sed -i 's/panzi_inotify<wbr>\.inotify/panzi_inotify/' docs/panzi_inotify.html
+sed -i 's/panzi_inotify\/inotify\.html/panzi_inotify.html/' docs/index.html
+
+rm -r docs/panzi_inotify
 
 git checkout gh-pages
 
