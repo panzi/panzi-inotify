@@ -386,6 +386,8 @@ class Inotify:
                 # A crash during inotify_init1() in __init__() means
                 # self._inotify_stream is not assigned, but self._inotify_fd
                 # is initialized with -1.
+                # Since this method is called in __del__() this state needs
+                # be handled.
                 self._inotify_stream.close()
         finally:
             self._inotify_fd = -1
