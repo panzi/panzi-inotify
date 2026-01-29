@@ -5,6 +5,16 @@ requires-python = ">=3.10"
 license = "MPL-2.0"
 keywords = ["inotify"]
 dynamic = ["version"]
+classifiers = [
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Topic :: System :: Filesystems",
+]
+[project.urls]
+"Homepage" = "https://pypi.org/project/panzi_inotify/"
+"Repository" = "https://github.com/panzi/panzi-inotify/"
+"Issue Tracker" = "https://github.com/panzi/panzi-inotify/issues"
 [tool.setuptools.dynamic]
 version = {attr = "panzi_inotify.__version__"}
 [dependency-groups]

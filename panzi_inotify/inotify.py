@@ -36,6 +36,7 @@ __all__ = (
     'PollInotify',
     'TerminalEventException',
     'get_inotify_event_names',
+    'HAS_INOTIFY',
     'IN_CLOEXEC',
     'IN_NONBLOCK',
     'IN_ACCESS',
@@ -211,7 +212,7 @@ def _check_return(value: int, filename: Optional[str] = None) -> int:
 
     return value
 
-HAS_INOTIFY = True
+HAS_INOTIFY = True; "`True` if your libc exports `inotify_init1`, `inotify_add_watch`, and `inotify_rm_watch`, otherwise `False`."
 
 _CDataType = type[ctypes.c_int]|type[ctypes.c_char_p]|type[ctypes.c_uint32]
 
