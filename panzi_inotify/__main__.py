@@ -76,7 +76,7 @@ def main(argv: list[str]):
         type=_parse_mask,
         default=IN_ALL_EVENTS,
         help=f'List of flags.\n'
-             f'Flags: {', '.join(flag.removeprefix('IN_') for flag in flags)}\n'
+             f'Flags: {', '.join(flag_dict)}\n'
              f'[default: ALL_EVENTS]')
     ap.add_argument('path', nargs='*')
 
