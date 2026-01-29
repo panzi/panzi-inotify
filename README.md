@@ -24,6 +24,22 @@ This one is different in these ways:
 * Translates errors in the approprioate Python exceptions from the given
   `errno` (`FileNotFoundError` etc. and `OSError` as fallback).
 
+Installation
+------------
+
+Via pip:
+
+```bash
+$ pip install panzi-inotify
+```
+
+Form source:
+
+```bash
+$ git clone git@github.com:panzi/panzi-inotify.git
+$ pip install ./panzi-inotify
+```
+
 Example
 -------
 
@@ -40,7 +56,7 @@ with Inotify() as inotify:
         print(f'{event.full_path()}: {", ".join(get_inotify_event_names(event.mask))}')
 ```
 
-See [examples](examples) for more.
+See [examples](https://github.com/panzi/panzi-inotify/tree/main/examples) for more.
 
 You can also run a basic command line too to listen for events on a set of paths
 like this:
@@ -63,4 +79,4 @@ See Also
 License
 -------
 
-[Mozilla Public License Version 2.0](LICENSE.txt)
+[Mozilla Public License Version 2.0](https://github.com/panzi/panzi-inotify/tree/main/LICENSE.txt)
