@@ -26,7 +26,7 @@ This one is different in these ways:
   the `epoll_wait()` call in `PollInotify.wait()`. If `POLLIN` signals for that
   then `wait()` will return `False`. This is meant for implementing a way to stop
   a thread that waits for events without a timeout.
-* Translates errors to the approprioate Python exceptions from the given `errno`
+* Translates errors to the appropriate Python exceptions from the given `errno`
   (`FileNotFoundError`, `PermissionError` etc. and `OSError` as fallback).
 * Uses Mozilla Public License Version 2.0, so you can use it from proprietary
   code, yet it isn't as permissive as MIT or BSD.
