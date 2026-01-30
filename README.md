@@ -2,7 +2,7 @@ panzi-inotify
 =============
 
 [![Test Status](https://img.shields.io/github/actions/workflow/status/panzi/panzi-inotify/tests.yml)](https://github.com/panzi/panzi-inotify/actions/workflows/tests.yml)
-[![Release](https://img.shields.io/github/v/release/panzi/panzi-inotify)](https://github.com/panzi/panzi-inotify/releases)
+[![Release](https://img.shields.io/github/v/tag/panzi/panzi-inotify)](https://pypi.org/project/panzi_inotify/)
 [![Mozilla Public License Version 2.0](https://img.shields.io/github/license/panzi/panzi-inotify)](https://github.com/panzi/panzi-inotify/blob/main/LICENSE.txt)
 
 [API Documentation](https://panzi.github.io/panzi-inotify)
