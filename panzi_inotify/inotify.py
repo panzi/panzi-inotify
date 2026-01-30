@@ -48,6 +48,7 @@ import ctypes
 import ctypes.util
 import logging
 
+from os import fsencode, fsdecode
 from os.path import join as join_path
 from io import BufferedReader
 from struct import Struct
@@ -60,13 +61,23 @@ from errno import (
 
 _logger = logging.getLogger(__name__)
 
-_LIBC_PATH = ctypes.util.find_library('c') or 'libc.so.6'
+_LIBC_PATH: Optional[str] = None
 
 try:
-    _LIBC: Optional[ctypes.CDLL] = ctypes.CDLL(_LIBC_PATH, use_errno=True)
+    # ctypes.util.find_library() runs multiple external programs (ldconfig, ld,
+    # gcc etc.) to find the library! So try to use dlopen(NULL) first.
+    _LIBC: Optional[ctypes.CDLL] = ctypes.CDLL(None, use_errno=True)
+
+    if not hasattr(_LIBC, 'inotify_init1'):
+        _LIBC_PATH = ctypes.util.find_library('c') or 'libc.so.6'
+        _LIBC = ctypes.CDLL(_LIBC_PATH, use_errno=True)
+
 except OSError as exc:
     _LIBC = None
-    _logger.debug('Loading %r: %s', _LIBC_PATH, exc, exc_info=exc)
+    if _LIBC_PATH is None:
+        _logger.debug('Loading C library: %s', exc, exc_info=exc)
+    else:
+        _logger.debug('Loading %r: %s', _LIBC_PATH, exc, exc_info=exc)
 
 __all__ = (
     'InotifyEvent',
@@ -476,7 +487,7 @@ class Inotify:
           `ENOMEM`, `ENOSPC`, `ENOSYS` if your libc doesn't support
           `inotify_rm_watch()`)
         """
-        path_bytes = path.encode('UTF-8', 'surrogateescape')
+        path_bytes = fsencode(path)
 
         wd = inotify_add_watch(self._inotify_fd, path_bytes, mask)
         _check_return(wd, path)
@@ -565,7 +576,8 @@ class Inotify:
 
         if filename_len:
             filename_bytes = stream.read(filename_len)
-            filename = filename_bytes.rstrip(b'\0').decode('UTF-8', 'surrogateescape')
+            index = filename_bytes.find(b'\0')
+            filename = fsdecode(filename_bytes[:index] if index >= 0 else filename_bytes)
         else:
             filename = None
 
@@ -604,7 +616,8 @@ class Inotify:
 
             if filename_len:
                 filename_bytes = stream.read(filename_len)
-                filename = filename_bytes.rstrip(b'\0').decode('UTF-8', 'surrogateescape')
+                index = filename_bytes.find(b'\0')
+                filename = fsdecode(filename_bytes[:index] if index >= 0 else filename_bytes)
             else:
                 filename = None
 

@@ -36,10 +36,21 @@ def watch_dir(temp_prefix: tuple[str, str]) -> Generator[str, None, None]:
         except FileNotFoundError:
             pass
 
+_suffix = ''
+
+try:
+    if os.fsdecode(b'\x80\xff') == '\udc80\udcff':
+        # This is an operating system that uses the surrogateescape hack to encode
+        # file names that are invalid UTF-8.
+        _suffix = '-\udc80\udcff'
+except UnicodeDecodeError:
+    pass
+
 @pytest.fixture(scope="function")
 def watch_file(temp_prefix: tuple[str, str]) -> Generator[str, None, None]:
     tempdir, prefix = temp_prefix
-    path = join_path(tempdir, f"{prefix}.txt")
+    # filename with broken unicode
+    path = join_path(tempdir, f"{prefix}{_suffix}.txt")
 
     with open(path, 'w'):
         pass

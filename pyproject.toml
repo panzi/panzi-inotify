@@ -1,9 +1,10 @@
 [project]
 name = "panzi_inotify"
+description = "Simple Linux inotify bindings for Python, including OSErrors."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MPL-2.0"
-keywords = ["inotify"]
+keywords = ["inotify", "linux"]
 dynamic = ["version"]
 classifiers = [
     "Operating System :: POSIX :: Linux",

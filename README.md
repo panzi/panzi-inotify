@@ -11,8 +11,9 @@ This one is different in these ways:
 * You can import the module even if your libc doesn't support inotify. It then
   will have `HAS_INOTIFY` `False` and only if you try to create an instance of
   `Inotify` you will get an exception (`OSError(ENOSYS)`).
-* It correctly handles paths that are invalid UTF-8 by using the `'surrogateescape'`
-  Unicode error handling option. This makes the file paths rountrip safe.
+* It correctly handles paths that are invalid UTF-8 by using `os.fsencode()`/`os.fsdecode()`
+  which use the `'surrogateescape'` Unicode error handling option. This makes
+  the file paths rountrip safe.
 * `wait()` and `read_events()` is separate. You can do your own wait/poll logic
   if you want.
 * You can use non-blocking mode and then `read_events()` only reads the available
