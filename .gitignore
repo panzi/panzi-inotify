@@ -7,3 +7,4 @@ __pycache__
 /docs
 /panzi_inotify.egg-info
 !.gitignore
+!.github
