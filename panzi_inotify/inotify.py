@@ -321,7 +321,7 @@ class InotifyEvent(NamedTuple):
     """
     wd: int; "Inotify watch descriptor."
     mask: int; """
-        Bit set of the events that occured and other intofmation.
+        Bit set of the events that occured and other information.
 
         The flags can be:
         - `IN_ACCESS` - File was accessed.
