@@ -402,6 +402,9 @@ class Inotify:
         It's recommended to pass the `IN_CLOEXEC` flag (default) to close the
         file descriptor on [exec*(2)](https://linux.die.net/man/3/execl).
 
+        `buffer_size` is the size of the used input buffer and needs to be at
+        least 272 (`sizeof(struct inotify_event) + NAME_MAX + 1`).
+
         This calls [inotify_init1(2)](https://linux.die.net/man/2/inotify_init1)
         and thus might raise an `OSError` with one of these `errno` values:
         - `EINVAL`
@@ -687,6 +690,9 @@ class PollInotify(Inotify):
         """
         If not `None` then `stopfd` is a file descriptor that will
         be added to the `poll()` call in `PollInotify.wait()`.
+
+        `buffer_size` is the size of the used input buffer and needs to be at
+        least 272 (`sizeof(struct inotify_event) + NAME_MAX + 1`).
 
         This calls [inotify_init1(2)](https://linux.die.net/man/2/inotify_init1)
         and thus might raise an `OSError` with one of these `errno` values:
